@@ -43,6 +43,8 @@ public class CORPairs extends Configured implements Tool {
 	 */
 	private static class CORMapper1 extends
 			Mapper<LongWritable, Text, Text, IntWritable> {
+		private final static IntWritable ONE = new IntWritable(1);
+		private final Text WORD = new Text();
 		@Override
 		public void map(LongWritable key, Text value, Context context)
 				throws IOException, InterruptedException {
@@ -53,6 +55,10 @@ public class CORPairs extends Configured implements Tool {
 			/*
 			 * TODO: Your implementation goes here.
 			 */
+			while (doc_tokenizer.hasMoreTokens()) {
+				WORD.set(doc_tokenizer.nextToken().toLowerCase());
+				context.write(WORD, ONE);
+			}
 		}
 	}
 
@@ -61,11 +67,18 @@ public class CORPairs extends Configured implements Tool {
 	 */
 	private static class CORReducer1 extends
 			Reducer<Text, IntWritable, Text, IntWritable> {
+		private final IntWritable RESULT = new IntWritable();
 		@Override
 		public void reduce(Text key, Iterable<IntWritable> values, Context context) throws IOException, InterruptedException {
 			/*
 			 * TODO: Your implementation goes here.
 			 */
+			int sum = 0;
+			for (IntWritable val : values) {
+				sum += val.get();
+			}
+			RESULT.set(sum);
+			context.write(key, RESULT);
 		}
 	}
 
@@ -74,6 +87,8 @@ public class CORPairs extends Configured implements Tool {
 	 * TODO: Write your second-pass Mapper here.
 	 */
 	public static class CORPairsMapper2 extends Mapper<LongWritable, Text, PairOfStrings, IntWritable> {
+		private final static IntWritable ONE = new IntWritable(1);
+		private final PairOfStrings PAIR = new PairOfStrings();
 		@Override
 		protected void map(LongWritable key, Text value, Context context) throws IOException, InterruptedException {
 			// Please use this tokenizer! DO NOT implement a tokenizer by yourself!
@@ -81,6 +96,24 @@ public class CORPairs extends Configured implements Tool {
 			/*
 			 * TODO: Your implementation goes here.
 			 */
+			List<String> words = new ArrayList<String>();
+
+			while (doc_tokenizer.hasMoreTokens()) {
+				words.add(doc_tokenizer.nextToken().toLowerCase());
+			}
+
+			for (int i = 0; i < words.size() - 1; i++) {
+				String word1 = words.get(i);
+				String word2 = words.get(i + 1);
+
+				if (word1.compareTo(word2) < 0) {
+					PAIR.set(word1, word2);
+				} else {
+					PAIR.set(word2, word1);
+				}
+
+				context.write(PAIR, ONE);
+			}
 		}
 	}
 
@@ -88,11 +121,18 @@ public class CORPairs extends Configured implements Tool {
 	 * TODO: Write your second-pass Combiner here.
 	 */
 	private static class CORPairsCombiner2 extends Reducer<PairOfStrings, IntWritable, PairOfStrings, IntWritable> {
+		private final IntWritable RESULT = new IntWritable();
 		@Override
 		protected void reduce(PairOfStrings key, Iterable<IntWritable> values, Context context) throws IOException, InterruptedException {
 			/*
 			 * TODO: Your implementation goes here.
 			 */
+			int sum = 0;
+			for (IntWritable val : values) {
+				sum += val.get();
+			}
+			RESULT.set(sum);
+			context.write(key, RESULT);
 		}
 	}
 
@@ -145,6 +185,19 @@ public class CORPairs extends Configured implements Tool {
 			/*
 			 * TODO: Your implementation goes here.
 			 */
+			int freqAB = 0;
+			for (IntWritable val : values) {
+				freqAB += val.get();
+			}
+
+			String word1 = key.getLeftElement();
+			String word2 = key.getRightElement();
+
+			int freqA = word_total_map.containsKey(word1) ? word_total_map.get(word1) : 0;
+			int freqB = word_total_map.containsKey(word2) ? word_total_map.get(word2) : 0;
+
+			double cor = (double) freqAB / (freqA * freqB);
+			context.write(key, new DoubleWritable(cor));
 		}
 	}
 
